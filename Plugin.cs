@@ -64,8 +64,27 @@ namespace LethalChat
             mls = BepInEx.Logging.Logger.CreateLogSource(modGUID);
             mls.LogInfo($"Loaded {modName}.");
 
-            AsyncTwitchEvents.Initialize();
+            //AsyncTwitchEvents.Initialize();
 
+            // authorization // authorization is auth token
+            // client ID
+            // channel ID
+            // title
+            // list of options
+            // duration in seconds
+            // can vote with channel poinsts
+            // cost per channel point vote
+            /*
+            List<string> testOptions = new List<string>()
+            {
+                "Test option 1",
+                "Test option 2",
+                "Test option 3",
+                "Test option 4"
+            };
+            */
+
+            //Polls.CreatePoll(""/* AUTH TOKEN */, "" /* CLIENT ID */, "" /* CHANNEL ID */, "Test Poll!", testOptions, 30, false, 0);
 
             /*
             #region IRCSETUP

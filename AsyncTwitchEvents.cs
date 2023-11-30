@@ -76,12 +76,8 @@ namespace LethalChat
 
         public static void Start()
         {
-
-            
-            // this shit is NOT async right now lmao
             listener.Start();
             Plugin.mls.LogInfo("Listening for requests...");
-            // freezes the game, not to be utilized just yet
 
             // CORRECTION: used to freeze the game, now that it is asyncronous, we g2g
             // This server essentially listens for events on the identified channel // none identified atm local testing
@@ -122,7 +118,7 @@ namespace LethalChat
 
                 if (VerifyMessage(hmacCompare, request.Headers[TWITCH_MESSAGE_SIGNATURE]))
                 {
-                    Plugin.mls.LogInfo("Signatures match");
+                    //Plugin.mls.LogInfo("Signatures match");
 
                     var notification = Newtonsoft.Json.JsonConvert.DeserializeObject<TwitchNotification>(body);
 
