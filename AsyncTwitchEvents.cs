@@ -1,12 +1,13 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
 using System.Net;
+using System.Runtime.Remoting.Messaging;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
-using System.Web.Mvc;
 using UnityEngine;
 
 
@@ -17,17 +18,19 @@ namespace LethalChat
     {
 
 
-        // Channel Username: //
-        // Channel ID: //
+        // Channel Username: 
+        // Channel ID: 
 
-        // Client ID: //
-        // Client Secret: //
+        // Client ID: 
+        // Client Secret: 
 
-        // Access Token: //
-        // Refresh Token: //
+        // Access Token: 
+        // Refresh Token: 
 
+        // no need to touch for now lol, got a couple of these reqs
         // quick link: https://twitchtokengenerator.com/quick/wPWEbdMclu
         // info requestor: https://twitchtokengenerator.com/request/ffx3n9o
+
 
         // not yet utilized
         private static string clientId = "";
@@ -35,6 +38,8 @@ namespace LethalChat
         private static string clientSecret = "";
         private static string channelId = "";
         private static string userName = "";
+
+
 
         #region NOTIF_DATA
         // HEADERS
@@ -77,13 +82,24 @@ namespace LethalChat
             listener.Start();
             Plugin.mls.LogInfo("Listening for requests...");
             // freezes the game, not to be utilized just yet
+
+            // CORRECTION: used to freeze the game, now that it is asyncronous, we g2g
+            // This server essentially listens for events on the identified channel // none identified atm local testing
+            Task.Run(async () => await ServerListen());
+
+        }
+
+        private static async Task ServerListen()
+        {
             while (true)
             {
-                
+                // idk how long a good delay is, 25 ms should be fine
+                await Task.Delay(25);
                 var context = listener.GetContext();
                 ProcessRequest(context);
             }
         }
+
 
         private static void ProcessRequest(HttpListenerContext context)
         {
@@ -101,12 +117,7 @@ namespace LethalChat
                 var message = GetHmacMessage(request, body);
 
                 var hmacCompare = GetHmac(secret, message);
-                var hmac = HMAC_PREFIX + hmacCompare;
-
-
-                Plugin.mls.LogInfo($"HMAC generated Locally: {hmac}");
-                Plugin.mls.LogInfo($"HMAC sent by the server: {request.Headers[TWITCH_MESSAGE_SIGNATURE]}");
-                
+                var hmac = HMAC_PREFIX + hmacCompare;                
 
 
                 if (VerifyMessage(hmacCompare, request.Headers[TWITCH_MESSAGE_SIGNATURE]))
@@ -117,9 +128,24 @@ namespace LethalChat
 
                     if (MESSAGE_TYPE_NOTIFICATION.Equals(request.Headers[MESSAGE_TYPE], StringComparison.OrdinalIgnoreCase))
                     {
-                        // TODO: Do something with the event's data.
+                        
                         Plugin.mls.LogInfo($"Event type: {notification.Subscription.Type}");
-                        Plugin.mls.LogInfo(Newtonsoft.Json.JsonConvert.SerializeObject(notification.Event, Newtonsoft.Json.Formatting.Indented));
+                        if(notification.Subscription.Type == "channel.channel_points_custom_reward_redemption.add")
+                        {
+                            // convert to generic json data
+                            var jsonData = (JObject)JsonConvert.DeserializeObject(body);
+                            //Plugin.mls.LogInfo($"Cost: {jsonData["event"]["reward"]["cost"]}");
+                            //Plugin.mls.LogInfo($"Reward ID: {jsonData["event"]["reward"]["id"]}");
+
+                            string rewardID = jsonData["event"]["reward"]["id"].ToString();
+                            string rewardCost = jsonData["event"]["reward"]["cost"].ToString();
+
+                            handleEventRedeemChannelPoints(rewardID, rewardCost);
+
+                        }
+
+
+                        //Plugin.mls.LogInfo(Newtonsoft.Json.JsonConvert.SerializeObject(notification.Event, Newtonsoft.Json.Formatting.Indented));
 
                         response.StatusCode = (int)HttpStatusCode.NoContent;
                     }
@@ -155,12 +181,38 @@ namespace LethalChat
             response.Close();
         }
 
+        private static bool handleEventRedeemChannelPoints(string eventID, string eventCost)
+        {
+            bool success = int.TryParse(eventCost, out int response);
+            int cost;
+            string id;
+
+            if (success)
+            {
+                cost = response;
+                id = eventID;
+            }
+            else
+            {
+                // return false as cost is a bad boi
+                return false;
+            }
+
+            Plugin.mls.LogInfo($"Cost: {cost}");
+            Plugin.mls.LogInfo($"ID: {id}");
+
+            // use id and cost to handle events :)
+            // return true if succesful or return false if unsuccesful, can be utilized to tell a streamer to refund the purchase or whatever
+
+            return true;
+        }
+
         private static string GetSecret()
         {
             // TODO: Get secret from secure storage. This is the secret you pass 
             // when you subscribed to the event.
             
-            return "NOT MY SECRET :P";
+            return "Still not my secret :)";
         }
 
         private static string GetHmacMessage(HttpListenerRequest request, string l_body)
@@ -177,8 +229,8 @@ namespace LethalChat
             byte[] secretBytes = Encoding.UTF8.GetBytes(secret);
             byte[] messageBytes = Encoding.UTF8.GetBytes(message);
 
-            Plugin.mls.LogInfo($"Secret: {BitConverter.ToString(secretBytes)}");
-            Plugin.mls.LogInfo($"Message: {BitConverter.ToString(messageBytes)}");
+            //Plugin.mls.LogInfo($"Secret: {BitConverter.ToString(secretBytes)}");
+            //Plugin.mls.LogInfo($"Message: {BitConverter.ToString(messageBytes)}");
 
             using (var hmac = new HMACSHA256(secretBytes))
             {
@@ -186,14 +238,15 @@ namespace LethalChat
                 string calculatedHmac = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
 
                 // Debug information
-                Plugin.mls.LogInfo($"Calculated HMAC: {calculatedHmac}");
+                //Plugin.mls.LogInfo($"Calculated HMAC: {calculatedHmac}");
 
                 return calculatedHmac;
             }
 
         }
 
-        // this shit is stupid man, I spent over an HOUR writing this just for it to not be all that necessary. Since I have it, I'm keeping it
+        // this shit is stupid man, I spent over an HOUR writing this just for it to not be all that necessary.
+        // Since I have it, I'm keeping it
         public static bool VerifyMessage(string hmac, string verifySignature)
         {
             // remove prefix so we can convert hex to byte
@@ -240,9 +293,10 @@ namespace LethalChat
 
             return bytes;
         }
+        
     }
 
-
+    
     public class TwitchNotification
     {
         public string Challenge { get; set; }
@@ -256,4 +310,6 @@ namespace LethalChat
         public string Status { get; set; }
         public object Condition { get; set; }
     }
+    
+        
 }

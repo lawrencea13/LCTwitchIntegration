@@ -23,7 +23,9 @@ namespace LethalChat
 
         internal static Plugin Instance;
 
+#pragma warning disable CS0649 // Field 'Plugin.CLIENTID' is never assigned to, and will always have its default value null
         internal string CLIENTID;
+#pragma warning restore CS0649 // Field 'Plugin.CLIENTID' is never assigned to, and will always have its default value null
         internal string CLIENTSECRET;
 
 
