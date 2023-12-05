@@ -1,17 +1,21 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using TwitchLib.Api.Core.Enums;
 
 namespace LethalChat
 {
     internal class Polls
     {
+        //internal static List<string> currentPollIDs = new List<string>();
 
-        internal static void CreatePoll(string authorization, string clientID, string channelID, string title, List<string> titles, int duration, bool channelPointVoting, int costPerVote)
+
+        public static string CreatePoll(string authorization, string clientID, string channelID, string title, List<string> titles, int duration, bool channelPointVoting, int costPerVote)
         {
             List<Choice> pollChoices = new List<Choice>();
             foreach (string choiceTitle in titles) { pollChoices.Add(new Choice { Title = choiceTitle }); }
@@ -26,10 +30,10 @@ namespace LethalChat
                 ChannelPointsPerVote = costPerVote
             };
 
-            
-            Task.Run(async () => await CreatePollAsync(clientID, authorization, pollRequest));
+            // no need to handle here, returns empty if failed
+            return Task.Run(async () => await CreatePollAsync(clientID, authorization, pollRequest)).Result;
         }
-        private static async Task CreatePollAsync(string clientID, string auth, PollRequest jsonData)
+        private static async Task<string> CreatePollAsync(string clientID, string auth, PollRequest jsonData)
         {
             string apiUrl = "https://api.twitch.tv/helix/polls";
             try
@@ -47,7 +51,20 @@ namespace LethalChat
 
                         if (response.IsSuccessStatusCode)
                         {
+                            // I can't test this shit but if my understanding is correct based on the docs
+                            // response.Content should contain a json object as a string that has data as the main point then id under that
                             Plugin.mls.LogInfo("Poll created successfully.");
+                            
+                            string body = await response.Content.ReadAsStringAsync();
+                            
+                            var responseBody = (JObject)JsonConvert.DeserializeObject(body);
+
+                            return (string)responseBody["data"]["id"];
+                            //currentPollIDs.Add((string)responseBody["data"]["id"]);
+                            // we also have direct access to the PollRequest object which allows us to use that to get the choices and store them
+                            // so when we go to use the response from the poll, we don't need to parse the data, we can just store the data here
+                            // then access it later
+
                         }
                         else
                         {
@@ -55,6 +72,8 @@ namespace LethalChat
 
                             string responseContent = await response.Content.ReadAsStringAsync();
                             Plugin.mls.LogInfo($"Response Content: {responseContent}");
+
+                            return string.Empty;
                         }
                     }
 
@@ -65,6 +84,7 @@ namespace LethalChat
             catch (Exception ex)
             {
                 Plugin.mls.LogInfo($"Error: {ex.Message}");
+                return string.Empty;
             }
         }
     }

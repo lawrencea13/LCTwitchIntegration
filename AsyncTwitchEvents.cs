@@ -32,13 +32,14 @@ namespace LethalChat
         // info requestor: https://twitchtokengenerator.com/request/ffx3n9o
 
 
-        // not yet utilized
+        // not yet utilized -- nvm, never going to be utilized, INSTEAD we handle it in the handler class
+        /*
         private static string clientId = "";
         private static string authToken = "";
         private static string clientSecret = "";
         private static string channelId = "";
         private static string userName = "";
-
+        */
 
 
         #region NOTIF_DATA
@@ -56,6 +57,14 @@ namespace LethalChat
         //
 
         #endregion
+
+        public delegate void PollCompletedEvent(string pollID);
+        public delegate void ChannelPointRedeemedEvent(string rewardID);
+
+
+        public static event PollCompletedEvent PollCompleted;
+        public static event ChannelPointRedeemedEvent ChannelPointRedeemed;
+
 
         private static HttpListener listener;
 
@@ -126,18 +135,26 @@ namespace LethalChat
                     {
                         
                         Plugin.mls.LogInfo($"Event type: {notification.Subscription.Type}");
-                        if(notification.Subscription.Type == "channel.channel_points_custom_reward_redemption.add")
+                        var jsonData = (JObject)JsonConvert.DeserializeObject(body);
+
+                        if (notification.Subscription.Type == "channel.channel_points_custom_reward_redemption.add")
                         {
                             // convert to generic json data
-                            var jsonData = (JObject)JsonConvert.DeserializeObject(body);
+                            
                             //Plugin.mls.LogInfo($"Cost: {jsonData["event"]["reward"]["cost"]}");
                             //Plugin.mls.LogInfo($"Reward ID: {jsonData["event"]["reward"]["id"]}");
 
                             string rewardID = jsonData["event"]["reward"]["id"].ToString();
                             string rewardCost = jsonData["event"]["reward"]["cost"].ToString();
+                            ChannelPointRedeemed.Invoke(rewardID);
+                            //handleEventRedeemChannelPoints(rewardID, rewardCost);
 
-                            handleEventRedeemChannelPoints(rewardID, rewardCost);
-
+                        }
+                        else if (notification.Subscription.Type == "channel.poll.end")
+                        {
+                            string pollID = jsonData["event"]["id"].ToString();
+                            PollCompleted.Invoke(pollID);
+                            //handleEventChannelPollEnded(pollID);
                         }
 
 
@@ -175,6 +192,26 @@ namespace LethalChat
             }
 
             response.Close();
+        }
+
+        private static bool handleEventChannelPollEnded(string pollID)
+        {
+            // deprecated due to new system
+            /*
+            if(Polls.currentPollIDs.Contains(pollID))
+            {
+                Polls.currentPollIDs.Remove(pollID);
+            }
+            else
+            {
+                // did not create poll, return
+                return false;
+            }
+            */
+
+
+            // handle poll action based on the pollID
+            return true;
         }
 
         private static bool handleEventRedeemChannelPoints(string eventID, string eventCost)
